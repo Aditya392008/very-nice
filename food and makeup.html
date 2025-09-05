@@ -1,0 +1,331 @@
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Heart, Sparkles, Pizza, IceCream, Coffee, Camera, Gift, PartyPopper } from "lucide-react";
+
+// Floating emoji particle component
+function FloatingEmoji({ emoji, delay = 0, size = 28 }) {
+  const y = useMemo(() => 80 + Math.random() * 40, []);
+  const xStart = useMemo(() => Math.random() * 100, []);
+  const duration = useMemo(() => 12 + Math.random() * 8, []);
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 0 }}
+      animate={{
+        opacity: [0, 1, 1, 0],
+        y: [0, -y, -y * 1.2],
+        x: [xStart + 5, xStart - 5, xStart + 10],
+      }}
+      transition={{ duration, delay, repeat: Infinity, ease: "easeInOut" }}
+      className="absolute"
+      style={{ left: `${xStart}%`, fontSize: size }}
+    >
+      {emoji}
+    </motion.div>
+  );
+}
+
+// Simple confetti using canvas
+function useConfetti() {
+  const canvasRef = useRef(null);
+  const burst = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const W = (canvas.width = window.innerWidth);
+    const H = (canvas.height = window.innerHeight);
+    const pieces = Array.from({ length: 140 }, () => ({
+      x: Math.random() * W,
+      y: H + Math.random() * 40,
+      r: 4 + Math.random() * 6,
+      vy: 2 + Math.random() * 4,
+      vx: -2 + Math.random() * 4,
+      a: Math.random() * Math.PI,
+    }));
+
+    let t = 0;
+    const colors = ["#f472b6", "#fb7185", "#fbbf24", "#34d399", "#60a5fa", "#c084fc"]; // tailwind-ish
+
+    const draw = () => {
+      ctx.clearRect(0, 0, W, H);
+      pieces.forEach((p) => {
+        p.x += p.vx;
+        p.y -= p.vy;
+        p.a += 0.07;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.a);
+        ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)];
+        ctx.fillRect(-p.r / 2, -p.r / 2, p.r, p.r);
+        ctx.restore();
+      });
+      t++;
+      if (t < 180) requestAnimationFrame(draw);
+      else ctx.clearRect(0, 0, W, H);
+    };
+    draw();
+  };
+  return { canvasRef, burst };
+}
+
+// Cute face preview SVG that we recolor
+function Face({ lip = "#e11d48", shadow = "#8b5cf6" }) {
+  return (
+    <svg viewBox="0 0 200 200" className="w-40 h-40 drop-shadow-xl">
+      <circle cx="100" cy="100" r="80" fill="#FFE8EC" />
+      <circle cx="70" cy="90" r="8" fill="#111827" />
+      <circle cx="130" cy="90" r="8" fill="#111827" />
+      {/* eyeshadow */}
+      <ellipse cx="70" cy="83" rx="16" ry="6" fill={shadow} opacity=".35" />
+      <ellipse cx="130" cy="83" rx="16" ry="6" fill={shadow} opacity=".35" />
+      {/* blush */}
+      <ellipse cx="60" cy="115" rx="12" ry="7" fill="#fda4af" opacity=".6" />
+      <ellipse cx="140" cy="115" rx="12" ry="7" fill="#fda4af" opacity=".6" />
+      {/* smile */}
+      <path d="M70 130 Q100 150 130 130" fill="none" stroke={lip} strokeWidth="6" strokeLinecap="round" />
+      {/* sparkles */}
+      <Sparkles width={18} height={18} x={40} y={60} color="#f59e0b" />
+      <Sparkles width={18} height={18} x={150} y={65} color="#a78bfa" />
+    </svg>
+  );
+}
+
+const foods = [
+  { name: "Pizza", icon: <Pizza className="w-5 h-5" />, emoji: "🍕", line: "I knead you like dough." },
+  { name: "Sushi", icon: <Camera className="w-5 h-5" />, emoji: "🍣", line: "We'd make a raw-some pair." },
+  { name: "Ice Cream", icon: <IceCream className="w-5 h-5" />, emoji: "🍨", line: "You melt my heart." },
+  { name: "Boba", icon: <Coffee className="w-5 h-5" />, emoji: "🧋", line: "You're my cup of tea." },
+];
+
+const swatches = [
+  { name: "Cherry Lips", lip: "#ef4444", shadow: "#fb7185" },
+  { name: "Berry Pop", lip: "#db2777", shadow: "#a78bfa" },
+  { name: "Peach Glow", lip: "#f97316", shadow: "#f59e0b" },
+  { name: "Mocha Dream", lip: "#a16207", shadow: "#7c3aed" },
+  { name: "Rose Nude", lip: "#e11d48", shadow: "#f472b6" },
+];
+
+function Card({ children, className = "" }) {
+  return (
+    <div className={`rounded-2xl p-5 bg-white/80 backdrop-blur shadow-lg border border-white/60 ${className}`}>
+      {children}
+    </div>
+  );
+}
+
+function Pill({ children }) {
+  return (
+    <span className="px-3 py-1 rounded-full text-xs bg-pink-100 text-pink-700 border border-pink-200">
+      {children}
+    </span>
+  );
+}
+
+function Title({ children, icon }) {
+  return (
+    <div className="flex items-center gap-2 text-xl font-semibold">
+      {icon}
+      <span>{children}</span>
+    </div>
+  );
+}
+
+export default function CrushSite() {
+  const [openMenu, setOpenMenu] = useState(false);
+  const [glam, setGlam] = useState(swatches[1]);
+  const [reasons, setReasons] = useState([
+    "You laugh with your eyes.",
+    "You turn ordinary into sparkle.",
+    "You make food taste better.",
+    "You remember the tiny things.",
+  ]);
+  const [typed, setTyped] = useState("");
+  const full = "Hey, you. I made this just for you — because you + food + makeup = ✨ perfection ✨";
+
+  const { canvasRef, burst } = useConfetti();
+
+  // typewriter
+  useEffect(() => {
+    let i = 0;
+    const id = setInterval(() => {
+      setTyped((s) => s + full[i]);
+      i++;
+      if (i >= full.length) clearInterval(id);
+    }, 25);
+    return () => clearInterval(id);
+  }, []);
+
+  // Floating emojis list
+  const floaters = ["🍕", "🧁", "🧋", "🍩", "🍰", "🍓", "💄", "💋", "💅", "✨", "🥐", "🍫"]; 
+
+  return (
+    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-rose-50 via-pink-50 to-fuchsia-100 text-slate-800">
+      {/* confetti canvas */}
+      <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-50" />
+
+      {/* floating emoji particles */}
+      <div className="pointer-events-none select-none absolute inset-0 overflow-hidden">
+        {floaters.map((e, i) => (
+          <FloatingEmoji key={i} emoji={e} delay={i * 0.6} size={22 + ((i * 7) % 14)} />
+        ))}
+      </div>
+
+      <header className="relative z-10 px-6 pt-10 pb-6 max-w-5xl mx-auto">
+        <div className="flex items-center gap-3">
+          <motion.div initial={{ rotate: -20, scale: 0 }} animate={{ rotate: 0, scale: 1 }} transition={{ type: "spring", stiffness: 300, damping: 14 }} className="p-2 rounded-2xl bg-white border shadow">
+            <Heart className="w-6 h-6 text-rose-500" />
+          </motion.div>
+          <div className="font-semibold tracking-tight">Food × Makeup × Crush</div>
+          <Pill>made with ❤️</Pill>
+        </div>
+      </header>
+
+      {/* HERO */}
+      <section className="relative z-10 px-6 max-w-5xl mx-auto">
+        <Card className="p-8 md:p-10 bg-white/80">
+          <div className="grid md:grid-cols-2 gap-8 items-center">
+            <div>
+              <motion.h1 initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.6 }} className="text-3xl md:text-5xl font-extrabold tracking-tight">
+                For the girl who loves <span className="text-rose-500">food</span> & <span className="text-fuchsia-600">makeup</span>
+              </motion.h1>
+              <p className="mt-4 text-base md:text-lg leading-relaxed min-h-[3.5rem]">{typed}</p>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <motion.button whileTap={{ scale: 0.95 }} onClick={() => setOpenMenu(true)} className="px-5 py-3 rounded-2xl bg-rose-500 text-white font-semibold shadow hover:shadow-lg">
+                  <span className="inline-flex items-center gap-2"><Pizza className="w-5 h-5" /> Let’s grab food</span>
+                </motion.button>
+                <motion.button whileTap={{ scale: 0.95 }} onClick={() => burst()} className="px-5 py-3 rounded-2xl bg-white border font-semibold shadow hover:shadow-lg">
+                  <span className="inline-flex items-center gap-2"><PartyPopper className="w-5 h-5 text-rose-500" /> Celebrate us</span>
+                </motion.button>
+                <motion.a whileTap={{ scale: 0.95 }} href="#glam" className="px-5 py-3 rounded-2xl bg-fuchsia-600 text-white font-semibold shadow hover:shadow-lg">
+                  <span className="inline-flex items-center gap-2"><Sparkles className="w-5 h-5" /> Glam lab</span>
+                </motion.a>
+              </div>
+            </div>
+            <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 120, damping: 12 }} className="flex justify-center md:justify-end">
+              <Face lip={glam.lip} shadow={glam.shadow} />
+            </motion.div>
+          </div>
+        </Card>
+      </section>
+
+      {/* FOOD CARDS */}
+      <section className="relative z-10 px-6 mt-10 max-w-5xl mx-auto">
+        <Title icon={<Pizza className="w-6 h-6 text-rose-500" />}>Taste Test Menu</Title>
+        <p className="mt-1 text-sm text-slate-600">Pick a vibe and I’ll plan it. Pinky promise. ✌️</p>
+        <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-5 mt-5">
+          {foods.map((f, idx) => (
+            <motion.div key={idx} whileHover={{ y: -6, rotate: -1 + (idx % 3) }} className="group">
+              <Card className="cursor-pointer text-center">
+                <div className="text-4xl mb-2">{f.emoji}</div>
+                <div className="font-semibold flex items-center justify-center gap-2">{f.icon}{f.name}</div>
+                <div className="text-sm text-slate-600 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">{f.line}</div>
+                <motion.button whileTap={{ scale: 0.94 }} onClick={() => setOpenMenu(true)} className="mt-4 px-4 py-2 rounded-xl bg-rose-500 text-white text-sm font-semibold shadow">
+                  Choose this
+                </motion.button>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* GLAM LAB */}
+      <section id="glam" className="relative z-10 px-6 mt-12 max-w-5xl mx-auto">
+        <Title icon={<Sparkles className="w-6 h-6 text-fuchsia-600" />}>Glam Lab</Title>
+        <p className="mt-1 text-sm text-slate-600">Pick a look and I’ll hype you like it’s couture week.</p>
+        <div className="grid md:grid-cols-2 gap-6 mt-5 items-center">
+          <Card className="flex items-center justify-center">
+            <Face lip={glam.lip} shadow={glam.shadow} />
+          </Card>
+          <Card>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {swatches.map((s, i) => (
+                <motion.button key={i} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.95 }} onClick={() => setGlam(s)} className="flex flex-col items-start gap-2 p-3 rounded-xl border bg-white hover:shadow">
+                  <div className="flex gap-2">
+                    <span className="w-5 h-5 rounded-full" style={{ background: s.lip }} />
+                    <span className="w-5 h-5 rounded-full" style={{ background: s.shadow }} />
+                  </div>
+                  <div className="text-sm font-medium">{s.name}</div>
+                </motion.button>
+              ))}
+            </div>
+            <div className="mt-4 text-sm text-slate-600">Current vibe: <b style={{ color: glam.lip }}>{glam.name}</b></div>
+          </Card>
+        </div>
+      </section>
+
+      {/* REASONS */}
+      <section className="relative z-10 px-6 mt-12 max-w-5xl mx-auto">
+        <Title icon={<Heart className="w-6 h-6 text-rose-500" />}>Reasons I adore you</Title>
+        <div className="grid md:grid-cols-4 sm:grid-cols-2 gap-4 mt-4">
+          {reasons.map((r, i) => (
+            <motion.div key={i} whileHover={{ rotateY: 8, y: -4 }} style={{ transformStyle: "preserve-3d" }}>
+              <Card className="h-full">
+                <div className="text-lg">{r}</div>
+              </Card>
+            </motion.div>
+          ))}
+          <motion.button whileTap={{ scale: 0.96 }} onClick={() => setReasons((arr) => [...arr, "You’re my favorite notification."])} className="rounded-2xl border-2 border-dashed p-5 text-sm text-slate-500 hover:text-slate-700 hover:bg-white">
+            + Add another reason
+          </motion.button>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="relative z-10 px-6 mt-12 mb-16 max-w-5xl mx-auto">
+        <Card className="flex flex-col md:flex-row items-center justify-between gap-4">
+          <div>
+            <div className="text-2xl font-bold">So… dinner & a mini glam haul?</div>
+            <div className="text-slate-600">I’ll bring the flowers. You bring the smile. Deal? 🌸</div>
+          </div>
+          <div className="flex gap-3">
+            <motion.button whileTap={{ scale: 0.95 }} onClick={burst} className="px-5 py-3 rounded-2xl bg-rose-600 text-white font-semibold shadow hover:shadow-lg">
+              Yes, let’s go! ✨
+            </motion.button>
+            <motion.a whileTap={{ scale: 0.95 }} href="#" className="px-5 py-3 rounded-2xl bg-white border font-semibold shadow hover:shadow-lg">
+              Maybe… tell me more
+            </motion.a>
+          </div>
+        </Card>
+      </section>
+
+      {/* FOOTER */}
+      <footer className="relative z-10 px-6 pb-10 max-w-5xl mx-auto text-center text-xs text-slate-500">
+        Built with way too many sparkles. © {new Date().getFullYear()}
+      </footer>
+
+      {/* MENU MODAL */}
+      <AnimatePresence>
+        {openMenu && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-40 grid place-items-center bg-black/40 p-6">
+            <motion.div initial={{ scale: 0.9, y: 12, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.98, opacity: 0 }} transition={{ type: "spring", stiffness: 160, damping: 18 }} className="max-w-lg w-full">
+              <Card className="relative">
+                <button onClick={() => setOpenMenu(false)} className="absolute -top-3 -right-3 bg-white rounded-full border shadow px-3 py-1 text-xs">close</button>
+                <div className="text-xl font-semibold flex items-center gap-2"><Pizza className="w-5 h-5 text-rose-500" /> Date ideas</div>
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="p-3 rounded-xl border bg-white">
+                    <div className="text-lg font-medium">Pizza picnic</div>
+                    <div className="text-sm text-slate-600">Sunset, playlist, and cheesy lines (literally).</div>
+                  </div>
+                  <div className="p-3 rounded-xl border bg-white">
+                    <div className="text-lg font-medium">Sushi & stroll</div>
+                    <div className="text-sm text-slate-600">Hand rolls + hand holding optional (but recommended).</div>
+                  </div>
+                  <div className="p-3 rounded-xl border bg-white">
+                    <div className="text-lg font-medium">Boba & arcade</div>
+                    <div className="text-sm text-slate-600">Winner buys the next round of pearls.</div>
+                  </div>
+                  <div className="p-3 rounded-xl border bg-white">
+                    <div className="text-lg font-medium">Dessert crawl</div>
+                    <div className="text-sm text-slate-600">One scoop per laugh. Unlimited scoops allowed.</div>
+                  </div>
+                </div>
+                <motion.button whileTap={{ scale: 0.96 }} onClick={() => { burst(); setOpenMenu(false); }} className="mt-4 w-full px-5 py-3 rounded-2xl bg-rose-600 text-white font-semibold shadow hover:shadow-lg">
+                  Book it ✨
+                </motion.button>
+              </Card>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
